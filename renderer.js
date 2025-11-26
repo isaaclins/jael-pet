@@ -48,21 +48,33 @@ const ANIMATIONS = {
     frameTime: 600,
     loop: true,
   },
+  // Hitting/Swatting (at cursor/mouse)
+  hit: {
+    frames: ['tile056.png', 'tile057.png', 'tile058.png', 'tile059.png', 'tile060.png', 'tile061.png'],
+    frameTime: 80,
+    loop: true,
+  },
   // Walking/Running
   walk: {
-    frames: ['tile056.png', 'tile057.png', 'tile058.png', 'tile059.png', 'tile060.png', 'tile061.png'],
+    frames: ['tile065.png', 'tile066.png', 'tile067.png'],
     frameTime: 100,
     loop: true,
   },
-  // More sitting variations
+  // Running fast
+  run: {
+    frames: ['tile075.png', 'tile076.png', 'tile077.png'],
+    frameTime: 80,
+    loop: true,
+  },
+  // Sitting to standing transition
   sitVariant: {
-    frames: ['tile064.png', 'tile065.png', 'tile066.png', 'tile067.png', 'tile068.png', 'tile069.png', 'tile070.png'],
+    frames: ['tile064.png', 'tile068.png', 'tile069.png', 'tile070.png'],
     frameTime: 300,
     loop: true,
   },
   // Scratching/Playing
   scratch: {
-    frames: ['tile072.png', 'tile073.png', 'tile074.png', 'tile075.png', 'tile076.png', 'tile077.png', 'tile078.png', 'tile079.png'],
+    frames: ['tile072.png', 'tile073.png', 'tile074.png', 'tile078.png', 'tile079.png'],
     frameTime: 150,
     loop: true,
   },
@@ -78,14 +90,19 @@ const state = {
   currentFrame: 0,
   facingRight: true,
   isDragging: false,
-  behavior: 'idle', // idle, walking, sleeping, grooming, scratching
+  behavior: 'idle', // idle, walking, hitting, sleeping, grooming, scratching
   behaviorTimer: 0,
   targetX: null,
-  walkSpeed: 3,
+  targetY: null,
+  cursorX: 0,
+  cursorY: 0,
+  walkSpeed: 4,
   animationTimer: null,
   lastFrameTime: 0,
   isSleeping: false,
   zzzElement: null,
+  followCursor: false,
+  idleTime: 0,
 };
 
 // Initialize
@@ -106,6 +123,12 @@ function init() {
     state.screenHeight = size.height;
     // Set initial position to bottom center
     state.y = size.height - 256;
+  });
+
+  // Listen for cursor position updates
+  ipcRenderer.on('cursor-position', (event, pos) => {
+    state.cursorX = pos.x;
+    state.cursorY = pos.y;
   });
 
   // Setup drag events
@@ -289,23 +312,58 @@ function startAnimationLoop() {
 
 // Movement logic
 function updateMovement() {
-  if (state.behavior === 'walking' && state.targetX !== null) {
-    const direction = state.targetX > state.x ? 1 : -1;
-    state.facingRight = direction > 0;
+  // Calculate distance to cursor
+  const targetX = state.cursorX - 128; // Center of cat window
+  const targetY = state.cursorY - 128;
+  const dx = targetX - state.x;
+  const dy = targetY - state.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  
+  // Hitting behavior - when cursor is close
+  if (state.behavior === 'hitting') {
+    // Update facing direction towards cursor
+    state.facingRight = dx > 0;
+    updateSprite();
     
-    // Move towards target
-    state.x += direction * state.walkSpeed;
+    // If cursor moves away, chase it
+    if (distance > 180) {
+      state.behavior = 'walking';
+      setAnimation('walk');
+    }
+    return;
+  }
+  
+  // Walking behavior - chase the cursor
+  if (state.behavior === 'walking') {
+    // If close enough to cursor, start hitting!
+    if (distance < 120) {
+      state.behavior = 'hitting';
+      setAnimation('hit');
+      state.idleTime = 0;
+      return;
+    }
     
-    // Check if reached target
-    if (Math.abs(state.x - state.targetX) < state.walkSpeed) {
-      state.x = state.targetX;
-      state.targetX = null;
-      state.behavior = 'idle';
-      setAnimation('idle');
+    // Normalize and move towards cursor
+    const speed = distance > 400 ? state.walkSpeed * 1.5 : state.walkSpeed; // Run faster if very far
+    const moveX = (dx / distance) * speed;
+    const moveY = (dy / distance) * speed;
+    
+    state.x += moveX;
+    state.y += moveY;
+    
+    // Update facing direction
+    state.facingRight = dx > 0;
+    
+    // Use run animation if very far
+    if (distance > 400 && state.currentAnimation !== 'run') {
+      setAnimation('run');
+    } else if (distance <= 400 && state.currentAnimation === 'run') {
+      setAnimation('walk');
     }
     
     // Clamp to screen bounds
     state.x = Math.max(0, Math.min(state.x, state.screenWidth - 256));
+    state.y = Math.max(0, Math.min(state.y, state.screenHeight - 256));
     
     ipcRenderer.send('move-window', { x: state.x, y: state.y });
     updateSprite();
@@ -319,13 +377,24 @@ function startBehaviorAI() {
       return;
     }
     
+    // Check distance to cursor - if far, more likely to follow
+    const dx = state.cursorX - state.x - 128;
+    const dy = state.cursorY - state.y - 128;
+    const distanceToCursor = Math.sqrt(dx * dx + dy * dy);
+    
     // Random behavior selection
     const rand = Math.random();
     
-    if (rand < 0.3) {
-      // Walk to random position
+    // If cursor is far away, high chance to follow it
+    if (distanceToCursor > 300 && rand < 0.7) {
       startWalking();
-    } else if (rand < 0.4) {
+      return;
+    }
+    
+    if (rand < 0.4) {
+      // Follow cursor
+      startWalking();
+    } else if (rand < 0.5) {
       // Start grooming
       state.behavior = 'grooming';
       const groomAnim = Math.random() < 0.5 ? 'groom' : 'groomAlt';
@@ -338,10 +407,10 @@ function startBehaviorAI() {
           setAnimation('idle');
         }
       }, 3000 + Math.random() * 4000);
-    } else if (rand < 0.5) {
-      // Fall asleep
+    } else if (rand < 0.55) {
+      // Fall asleep (less frequent)
       goToSleep();
-    } else if (rand < 0.6) {
+    } else if (rand < 0.65) {
       // Scratch
       state.behavior = 'scratching';
       setAnimation('scratch');
@@ -352,7 +421,7 @@ function startBehaviorAI() {
           setAnimation('idle');
         }
       }, 2000 + Math.random() * 3000);
-    } else if (rand < 0.7) {
+    } else if (rand < 0.75) {
       // Look around (alert)
       setAnimation('alert');
       setTimeout(() => {
@@ -360,7 +429,7 @@ function startBehaviorAI() {
           setAnimation('idle');
         }
       }, 2000);
-    } else if (rand < 0.8) {
+    } else if (rand < 0.85) {
       // Sit variation
       const sitAnims = ['sit', 'sitVariant', 'idleAlt'];
       setAnimation(sitAnims[Math.floor(Math.random() * sitAnims.length)]);
@@ -378,24 +447,41 @@ function startBehaviorAI() {
   
   // Run behavior decision every few seconds
   setInterval(() => {
+    // Check if hitting for too long - cat gets bored
+    if (state.behavior === 'hitting') {
+      state.idleTime++;
+      if (state.idleTime > 3) { // After ~6 seconds of hitting
+        state.behavior = 'idle';
+        setAnimation('idle');
+        state.idleTime = 0;
+      }
+      return;
+    }
+    
     if (state.behavior === 'idle' && !state.isDragging && !state.isSleeping) {
+      state.idleTime++;
+      // If idle for too long and cursor is far, start following
+      if (state.idleTime > 2) {
+        const dx = state.cursorX - state.x - 128;
+        const dy = state.cursorY - state.y - 128;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 200) {
+          startWalking();
+          return;
+        }
+      }
       decideBehavior();
     }
-  }, 4000 + Math.random() * 3000);
+  }, 2000);
   
   // Initial behavior after short delay
-  setTimeout(decideBehavior, 2000);
+  setTimeout(decideBehavior, 1000);
 }
 
-// Start walking to a random position
+// Start walking towards the cursor
 function startWalking() {
   state.behavior = 'walking';
-  
-  // Pick a random target position
-  const minX = 50;
-  const maxX = state.screenWidth - 300;
-  state.targetX = minX + Math.random() * (maxX - minX);
-  
+  state.idleTime = 0;
   setAnimation('walk');
 }
 

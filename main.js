@@ -58,6 +58,14 @@ function createWindow() {
     const display = screen.getPrimaryDisplay();
     event.reply('screen-size', display.workAreaSize);
   });
+
+  // Send cursor position to renderer periodically
+  setInterval(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const cursorPos = screen.getCursorScreenPoint();
+      mainWindow.webContents.send('cursor-position', cursorPos);
+    }
+  }, 50); // Update 20 times per second
 }
 
 function createTray() {
