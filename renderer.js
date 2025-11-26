@@ -102,6 +102,17 @@ const state = {
   hitStartTime: 0,
 };
 
+// Behavior settings (will be updated from settings window)
+let behaviorChances = {
+  walk: 40,
+  lickPaw: 15,
+  sleep: 10,
+  throwUp: 10,
+  idleAlt: 10,
+  idle: 15,
+  farChase: 70,
+};
+
 // Initialize
 function init() {
   // Get initial position
@@ -127,6 +138,17 @@ function init() {
     state.cursorX = pos.x;
     state.cursorY = pos.y;
   });
+
+  // Listen for settings from settings window
+  ipcRenderer.on('pet-settings', (event, settings) => {
+    if (settings) {
+      behaviorChances = { ...behaviorChances, ...settings };
+      console.log('Loaded behavior settings:', behaviorChances);
+    }
+  });
+
+  // Request settings
+  ipcRenderer.send('get-settings');
 
   // Setup drag events
   setupDragEvents();
@@ -395,19 +417,27 @@ function startBehaviorAI() {
     const dy = state.cursorY - state.y - 128;
     const distanceToCursor = Math.sqrt(dx * dx + dy * dy);
     
-    // Random behavior selection
-    const rand = Math.random();
+    // Random behavior selection (0-100)
+    const rand = Math.random() * 100;
     
     // If cursor is far away, high chance to follow it
-    if (distanceToCursor > 300 && rand < 0.7) {
+    if (distanceToCursor > 300 && rand < behaviorChances.farChase) {
       startWalking();
       return;
     }
     
-    if (rand < 0.4) {
+    // Calculate cumulative thresholds from settings
+    const walkThreshold = behaviorChances.walk;
+    const lickThreshold = walkThreshold + behaviorChances.lickPaw;
+    const sleepThreshold = lickThreshold + behaviorChances.sleep;
+    const throwUpThreshold = sleepThreshold + behaviorChances.throwUp;
+    const idleAltThreshold = throwUpThreshold + behaviorChances.idleAlt;
+    // idle is the remainder (idleAltThreshold to 100)
+    
+    if (rand < walkThreshold) {
       // Follow cursor
       startWalking();
-    } else if (rand < 0.55) {
+    } else if (rand < lickThreshold) {
       // Lick paw (grooming)
       state.behavior = 'licking';
       const lickAnim = Math.random() < 0.5 ? 'lickPaw' : 'lickPawAlt';
@@ -420,10 +450,10 @@ function startBehaviorAI() {
           setAnimation('idle');
         }
       }, 3000 + Math.random() * 4000);
-    } else if (rand < 0.65) {
+    } else if (rand < sleepThreshold) {
       // Fall asleep
       goToSleep();
-    } else if (rand < 0.75) {
+    } else if (rand < throwUpThreshold) {
       // Throw up hairball (rare funny animation)
       state.behavior = 'throwingUp';
       setAnimation('throwUp');
@@ -434,7 +464,7 @@ function startBehaviorAI() {
           setAnimation('idle');
         }
       }, 2000 + Math.random() * 3000);
-    } else if (rand < 0.85) {
+    } else if (rand < idleAltThreshold) {
       // Idle variation
       setAnimation('idleAlt');
       setTimeout(() => {

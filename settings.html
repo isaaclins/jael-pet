@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jael Pet Settings</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #eee;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    h1 .cat-icon {
+      font-size: 32px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 25px;
+      font-size: 14px;
+    }
+
+    .settings-group {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .settings-group h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      gap: 15px;
+    }
+
+    .setting-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .setting-label {
+      flex: 0 0 120px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .setting-label .emoji {
+      font-size: 18px;
+    }
+
+    .setting-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.1);
+      outline: none;
+    }
+
+    .setting-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #6c5ce7;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .setting-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .setting-value {
+      flex: 0 0 50px;
+      text-align: right;
+      font-weight: bold;
+      color: #6c5ce7;
+      font-size: 14px;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 15px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      margin-top: 15px;
+    }
+
+    .total-label {
+      font-weight: bold;
+    }
+
+    .total-value {
+      font-weight: bold;
+      transition: color 0.2s;
+    }
+
+    .total-value.valid {
+      color: #00b894;
+    }
+
+    .total-value.invalid {
+      color: #e74c3c;
+    }
+
+    .warning {
+      background: rgba(231, 76, 60, 0.2);
+      border: 1px solid rgba(231, 76, 60, 0.5);
+      border-radius: 8px;
+      padding: 10px 15px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .warning.show {
+      display: block;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    button {
+      flex: 1;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      color: white;
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .preview {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .preview img {
+      width: 64px;
+      height: 64px;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="preview">
+      <img src="sprites/01_idle/tile000.png" alt="Cat" id="preview-cat">
+    </div>
+    
+    <h1><span class="cat-icon">🐱</span> Jael Pet Settings</h1>
+    <p class="subtitle">Adjust behavior probabilities</p>
+
+    <div class="warning" id="warning" style="display: none;">
+      ⚠️ Total must equal 100%. Adjust sliders to continue.
+    </div>
+
+    <div class="settings-group">
+      <h2>Behavior Chances <span style="font-size: 11px; color: #666; font-weight: normal;">(auto-balances to 100%)</span></h2>
+      
+      <div class="setting-row">
+        <span class="setting-label"><span class="emoji">🚶</span> Walk</span>
+        <input type="range" class="setting-slider" id="walk" min="0" max="100" value="40">
+        <span class="setting-value" id="walk-value">40%</span>
+      </div>
+      
+      <div class="setting-row">
+        <span class="setting-label"><span class="emoji">👅</span> Lick Paw</span>
+        <input type="range" class="setting-slider" id="lickPaw" min="0" max="100" value="15">
+        <span class="setting-value" id="lickPaw-value">15%</span>
+      </div>
+      
+      <div class="setting-row">
+        <span class="setting-label"><span class="emoji">😴</span> Sleep</span>
+        <input type="range" class="setting-slider" id="sleep" min="0" max="100" value="10">
+        <span class="setting-value" id="sleep-value">10%</span>
+      </div>
+      
+      <div class="setting-row">
+        <span class="setting-label"><span class="emoji">🤮</span> Throw Up</span>
+        <input type="range" class="setting-slider" id="throwUp" min="0" max="100" value="10">
+        <span class="setting-value" id="throwUp-value">10%</span>
+      </div>
+      
+      <div class="setting-row">
+        <span class="setting-label"><span class="emoji">🪑</span> Idle Alt</span>
+        <input type="range" class="setting-slider" id="idleAlt" min="0" max="100" value="10">
+        <span class="setting-value" id="idleAlt-value">10%</span>
+      </div>
+      
+      <div class="setting-row">
+        <span class="setting-label"><span class="emoji">😺</span> Stay Idle</span>
+        <input type="range" class="setting-slider" id="idle" min="0" max="100" value="15">
+        <span class="setting-value" id="idle-value">15%</span>
+      </div>
+
+      <div class="total-row">
+        <span class="total-label">Total:</span>
+        <span class="total-value valid" id="total">100%</span>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <h2>When Cursor is Far (>300px)</h2>
+      
+      <div class="setting-row">
+        <span class="setting-label"><span class="emoji">🏃</span> Chase</span>
+        <input type="range" class="setting-slider" id="farChase" min="0" max="100" value="70">
+        <span class="setting-value" id="farChase-value">70%</span>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button class="btn-secondary" id="reset-btn">Reset Defaults</button>
+      <button class="btn-primary" id="start-btn">Start Pet! 🐱</button>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
+

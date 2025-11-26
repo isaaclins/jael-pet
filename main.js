@@ -1,10 +1,40 @@
-const { app, BrowserWindow, screen, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, screen, Tray, Menu, nativeImage, ipcMain } = require('electron');
 const path = require('path');
 
 let mainWindow;
+let settingsWindow;
 let tray;
+let petSettings = null;
+let cursorInterval = null;
 
-function createWindow() {
+// Create settings window on app start
+function createSettingsWindow() {
+  settingsWindow = new BrowserWindow({
+    width: 550,
+    height: 700,
+    resizable: false,
+    frame: true,
+    titleBarStyle: 'hiddenInset',
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  settingsWindow.loadFile('settings.html');
+  settingsWindow.setMenu(null);
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+    // If settings window closed without starting, quit app
+    if (!mainWindow) {
+      app.quit();
+    }
+  });
+}
+
+// Create the pet window
+function createPetWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
 
@@ -33,43 +63,29 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
 
-  // Send screen dimensions to renderer
+  // Send screen dimensions and settings to renderer
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.send('screen-size', { width, height });
-  });
-
-  // Handle window movement from renderer
-  const { ipcMain } = require('electron');
-  
-  ipcMain.on('move-window', (event, { x, y }) => {
-    if (mainWindow) {
-      mainWindow.setPosition(Math.round(x), Math.round(y));
-    }
-  });
-
-  ipcMain.on('get-position', (event) => {
-    if (mainWindow) {
-      const pos = mainWindow.getPosition();
-      event.reply('current-position', { x: pos[0], y: pos[1] });
-    }
-  });
-
-  ipcMain.on('get-screen-size', (event) => {
-    const display = screen.getPrimaryDisplay();
-    event.reply('screen-size', display.workAreaSize);
+    mainWindow.webContents.send('pet-settings', petSettings);
   });
 
   // Send cursor position to renderer periodically
-  setInterval(() => {
+  cursorInterval = setInterval(() => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       const cursorPos = screen.getCursorScreenPoint();
       mainWindow.webContents.send('cursor-position', cursorPos);
     }
-  }, 50); // Update 20 times per second
+  }, 50);
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+    if (cursorInterval) {
+      clearInterval(cursorInterval);
+    }
+  });
 }
 
 function createTray() {
-  // Create a simple tray icon
   const iconPath = path.join(__dirname, 'sprites', '01_idle', 'tile000.png');
   const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(icon.resize({ width: 16, height: 16 }));
@@ -81,18 +97,32 @@ function createTray() {
     },
     { type: 'separator' },
     {
+      label: 'Settings',
+      click: () => {
+        if (!settingsWindow) {
+          createSettingsWindow();
+        } else {
+          settingsWindow.focus();
+        }
+      },
+    },
+    {
       label: 'Reset Position',
       click: () => {
-        const primaryDisplay = screen.getPrimaryDisplay();
-        const { width, height } = primaryDisplay.workAreaSize;
-        mainWindow.setPosition(Math.floor(width / 2), height - 256);
+        if (mainWindow) {
+          const primaryDisplay = screen.getPrimaryDisplay();
+          const { width, height } = primaryDisplay.workAreaSize;
+          mainWindow.setPosition(Math.floor(width / 2), height - 256);
+        }
       },
     },
     {
       label: 'Toggle Click-Through',
       click: () => {
-        const isIgnoring = mainWindow.isIgnoreMouseEvents !== false;
-        mainWindow.setIgnoreMouseEvents(!isIgnoring, { forward: true });
+        if (mainWindow) {
+          const isIgnoring = mainWindow.isIgnoreMouseEvents !== false;
+          mainWindow.setIgnoreMouseEvents(!isIgnoring, { forward: true });
+        }
       },
     },
     { type: 'separator' },
@@ -108,13 +138,49 @@ function createTray() {
   tray.setContextMenu(contextMenu);
 }
 
-app.whenReady().then(() => {
-  createWindow();
+// IPC Handlers
+ipcMain.on('start-pet', (event, settings) => {
+  petSettings = settings;
+  
+  // Close settings window
+  if (settingsWindow) {
+    settingsWindow.close();
+  }
+  
+  // Create pet window
+  createPetWindow();
   createTray();
+});
+
+ipcMain.on('move-window', (event, { x, y }) => {
+  if (mainWindow) {
+    mainWindow.setPosition(Math.round(x), Math.round(y));
+  }
+});
+
+ipcMain.on('get-position', (event) => {
+  if (mainWindow) {
+    const pos = mainWindow.getPosition();
+    event.reply('current-position', { x: pos[0], y: pos[1] });
+  }
+});
+
+ipcMain.on('get-screen-size', (event) => {
+  const display = screen.getPrimaryDisplay();
+  event.reply('screen-size', display.workAreaSize);
+});
+
+ipcMain.on('get-settings', (event) => {
+  event.reply('pet-settings', petSettings);
+});
+
+// App lifecycle
+app.whenReady().then(() => {
+  createSettingsWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      createSettingsWindow();
     }
   });
 });
@@ -125,10 +191,9 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Keep window always on top
+// Keep pet window always on top
 app.on('browser-window-focus', () => {
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setAlwaysOnTop(true, 'floating');
   }
 });
-
