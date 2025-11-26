@@ -13,13 +13,10 @@ jobs:
         include:
           - os: macos-latest
             platform: mac
-            artifact: "*.dmg"
           - os: windows-latest
             platform: win
-            artifact: "*.exe"
           - os: ubuntu-latest
             platform: linux
-            artifact: "*.AppImage"
 
     runs-on: ${{ matrix.os }}
 
@@ -99,31 +96,59 @@ jobs:
             dist/*.deb
           if-no-files-found: error
 
-  # Optional: Create a release when pushing a tag
+  # Auto-release on every push to main
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     permissions:
       contents: write
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate version tag
+        id: version
+        run: |
+          # Generate version based on date and short commit hash
+          VERSION="v1.0.$(date +%Y%m%d)-$(echo ${{ github.sha }} | cut -c1-7)"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
+      - name: List artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find artifacts -type f -name "*"
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: "Jael Pet ${{ steps.version.outputs.version }}"
+          body: |
+            ## 🐱 Jael Pet Release
+            
+            Auto-generated release from commit ${{ github.sha }}
+            
+            ### Downloads
+            - **macOS**: Download the `.dmg` file
+            - **Windows**: Download the `.exe` installer
+            - **Linux**: Download the `.AppImage` or `.deb` file
+            
+            ### Changes
+            ${{ github.event.head_commit.message }}
           files: |
             artifacts/jael-pet-macos/*
             artifacts/jael-pet-windows/*
             artifacts/jael-pet-linux/*
           draft: false
           prerelease: false
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
