@@ -99,6 +99,7 @@ const state = {
   zzzElement: null,
   followCursor: false,
   idleTime: 0,
+  hitStartTime: 0,
 };
 
 // Initialize
@@ -310,11 +311,17 @@ function startAnimationLoop() {
 // Movement logic
 function updateMovement() {
   // Calculate distance to cursor
-  const targetX = state.cursorX - 128; // Center of cat window
-  const targetY = state.cursorY - 128;
+  // Cat should position itself 50px ABOVE the cursor so its paws reach the cursor
+  const targetX = state.cursorX - 128; // Center of cat window horizontally
+  const targetY = state.cursorY - 128 - 100; // 50px above cursor for paw alignment
   const dx = targetX - state.x;
   const dy = targetY - state.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
+  
+  // Calculate horizontal distance (for hitting - cat hits sideways)
+  const horizontalDist = Math.abs(dx);
+  // Check if cat is at the right position to hit (close vertically)
+  const cursorAtPawLevel = Math.abs(dy) < 10; // 10px tolerance
   
   // Hitting behavior - when cursor is close
   if (state.behavior === 'hitting') {
@@ -322,8 +329,16 @@ function updateMovement() {
     state.facingRight = dx > 0;
     updateSprite();
     
-    // If cursor moves away, chase it
-    if (distance > 180) {
+    // Stop hitting after 5 seconds max
+    const hitDuration = Date.now() - state.hitStartTime;
+    if (hitDuration > 5000) {
+      state.behavior = 'idle';
+      setAnimation('idle');
+      return;
+    }
+    
+    // If cursor moves away or goes above/below paw level, chase it
+    if (horizontalDist > 80 || !cursorAtPawLevel) {
       state.behavior = 'walking';
       setAnimation('walk');
     }
@@ -332,11 +347,12 @@ function updateMovement() {
   
   // Walking behavior - chase the cursor
   if (state.behavior === 'walking') {
-    // If close enough to cursor, start hitting!
-    if (distance < 120) {
+    // If close enough to cursor AND cursor is at paw level, start hitting!
+    if (horizontalDist < 50 && cursorAtPawLevel) {
       state.behavior = 'hitting';
       setAnimation('hit');
       state.idleTime = 0;
+      state.hitStartTime = Date.now(); // Track when hitting started
       return;
     }
     
