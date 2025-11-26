@@ -45,21 +45,21 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           mkdir -p build
-          sips -z 512 512 cat/tile000.png --out build/icon.png
+          sips -z 512 512 sprites/01_idle/tile000.png --out build/icon.png
 
       - name: Create icon (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           mkdir -p build
           sudo apt-get install -y imagemagick
-          convert cat/tile000.png -filter point -resize 512x512 build/icon.png
+          convert sprites/01_idle/tile000.png -filter point -resize 512x512 build/icon.png
 
       - name: Create icon (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           mkdir -p build
           npm install -g sharp-cli
-          npx sharp -i cat/tile000.png -o build/icon.png resize 512 512
+          npx sharp -i sprites/01_idle/tile000.png -o build/icon.png resize 512 512
         shell: bash
 
       - name: Build for ${{ matrix.platform }}
@@ -96,7 +96,7 @@ jobs:
             dist/*.deb
           if-no-files-found: error
 
-  # Auto-release on every push to main
+  # Auto-tag and release on every push to main
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -108,14 +108,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Generate version tag
         id: version
         run: |
-          # Generate version based on date and short commit hash
-          VERSION="v1.0.$(date +%Y%m%d)-$(echo ${{ github.sha }} | cut -c1-7)"
+          # Generate version: v1.0.YYYYMMDD-HHMMSS
+          VERSION="v1.0.$(date +%Y%m%d-%H%M%S)"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Generated version: $VERSION"
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a ${{ steps.version.outputs.version }} -m "Auto-release ${{ steps.version.outputs.version }}"
+          git push origin ${{ steps.version.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -127,28 +138,34 @@ jobs:
           echo "Downloaded artifacts:"
           find artifacts -type f -name "*"
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          name: "Jael Pet ${{ steps.version.outputs.version }}"
+          name: "🐱 Jael Pet ${{ steps.version.outputs.version }}"
           body: |
-            ## 🐱 Jael Pet Release
+            ## 🐱 Jael Pet Desktop Release
             
-            Auto-generated release from commit ${{ github.sha }}
+            **Commit:** ${{ github.sha }}
             
-            ### Downloads
-            - **macOS**: Download the `.dmg` file
-            - **Windows**: Download the `.exe` installer
-            - **Linux**: Download the `.AppImage` or `.deb` file
+            ### 📥 Downloads
+            | Platform | File |
+            |----------|------|
+            | **macOS** | `.dmg` (installer) or `.zip` |
+            | **Windows** | `.exe` (Setup = installer, other = portable) |
+            | **Linux** | `.AppImage` or `.deb` |
             
-            ### Changes
+            ### 📝 Changes
             ${{ github.event.head_commit.message }}
+            
+            ---
+            *Auto-generated release*
           files: |
             artifacts/jael-pet-macos/*
             artifacts/jael-pet-windows/*
             artifacts/jael-pet-linux/*
           draft: false
           prerelease: false
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -37,7 +37,7 @@
       "main.js",
       "renderer.js",
       "index.html",
-      "cat/**/*"
+      "sprites/**/*"
     ],
     "mac": {
       "category": "public.app-category.entertainment",

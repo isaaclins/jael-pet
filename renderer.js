@@ -5,76 +5,72 @@ const cat = document.getElementById('cat');
 const heartsContainer = document.getElementById('hearts');
 const catContainer = document.getElementById('cat-container');
 
-// Animation Definitions based on sprite sheet analysis
+// Animation Definitions - using sprites/ folder organization
 const ANIMATIONS = {
-  // Idle animations (sitting)
+  // 01_idle - sitting still
   idle: {
+    folder: '01_idle',
     frames: ['tile000.png', 'tile001.png', 'tile002.png', 'tile003.png'],
     frameTime: 400,
     loop: true,
   },
   idleAlt: {
+    folder: '01_idle',
     frames: ['tile008.png', 'tile009.png', 'tile010.png', 'tile011.png'],
     frameTime: 400,
     loop: true,
   },
-  // Alert/looking around
-  alert: {
+  // 02_lick_paw - licking paw animation
+  lickPaw: {
+    folder: '02_lick_paw',
     frames: ['tile016.png', 'tile017.png', 'tile018.png', 'tile019.png'],
-    frameTime: 300,
+    frameTime: 200,
     loop: true,
   },
-  // Sitting poses
-  sit: {
+  lickPawAlt: {
+    folder: '02_lick_paw',
     frames: ['tile024.png', 'tile025.png', 'tile026.png', 'tile027.png'],
-    frameTime: 500,
+    frameTime: 200,
     loop: true,
   },
-  // Grooming/licking
-  groom: {
+  // 03_running - walking/running cycle
+  walk: {
+    folder: '03_running',
     frames: ['tile032.png', 'tile033.png', 'tile034.png', 'tile035.png', 'tile036.png', 'tile037.png', 'tile038.png', 'tile039.png'],
-    frameTime: 200,
+    frameTime: 100,
     loop: true,
   },
-  // More grooming
-  groomAlt: {
+  run: {
+    folder: '03_running',
     frames: ['tile040.png', 'tile041.png', 'tile042.png', 'tile043.png', 'tile044.png', 'tile045.png', 'tile046.png', 'tile047.png'],
-    frameTime: 200,
+    frameTime: 70,
     loop: true,
   },
-  // Sleeping/lying down
+  // 04_sleep - sleeping
   sleep: {
+    folder: '04_sleep',
     frames: ['tile048.png', 'tile049.png', 'tile050.png', 'tile051.png'],
     frameTime: 600,
     loop: true,
   },
-  // Hitting/Swatting (at cursor/mouse)
+  // 05_hit - hitting/swatting at cursor
   hit: {
+    folder: '05_hit',
     frames: ['tile056.png', 'tile057.png', 'tile058.png', 'tile059.png', 'tile060.png', 'tile061.png'],
     frameTime: 80,
     loop: true,
   },
-  // Walking/Running
-  walk: {
-    frames: ['tile065.png', 'tile066.png', 'tile067.png'],
+  // 06_jump - jumping
+  jump: {
+    folder: '06_jump',
+    frames: ['tile064.png', 'tile065.png', 'tile066.png', 'tile067.png', 'tile068.png', 'tile069.png'],
     frameTime: 100,
-    loop: true,
+    loop: false,
   },
-  // Running fast
-  run: {
-    frames: ['tile075.png', 'tile076.png', 'tile077.png'],
-    frameTime: 80,
-    loop: true,
-  },
-  // Sitting to standing transition
-  sitVariant: {
-    frames: ['tile064.png', 'tile068.png', 'tile069.png', 'tile070.png'],
-    frameTime: 300,
-    loop: true,
-  },
-  // Scratching/Playing
-  scratch: {
-    frames: ['tile072.png', 'tile073.png', 'tile074.png', 'tile078.png', 'tile079.png'],
+  // 08_throw_up - throwing up hairball
+  throwUp: {
+    folder: '08_throw_up',
+    frames: ['tile072.png', 'tile073.png', 'tile074.png', 'tile075.png', 'tile076.png', 'tile077.png', 'tile078.png', 'tile079.png'],
     frameTime: 150,
     loop: true,
   },
@@ -162,7 +158,7 @@ function setupDragEvents() {
       // Stop any current behavior
       state.behavior = 'idle';
       state.targetX = null;
-      setAnimation('alert');
+      setAnimation('idleAlt');
     }
   });
 
@@ -206,9 +202,9 @@ function setupClickEvents() {
       wakeUp();
     } else {
       // Random fun action
-      const actions = ['scratch', 'groom', 'groomAlt'];
+      const actions = ['lickPaw', 'lickPawAlt', 'jump', 'throwUp'];
       const randomAction = actions[Math.floor(Math.random() * actions.length)];
-      state.behavior = randomAction;
+      state.behavior = 'playing';
       setAnimation(randomAction);
       
       // Reset after a while
@@ -231,7 +227,7 @@ function petCat() {
   
   // Maybe purr (change to happy animation)
   if (state.behavior !== 'walking') {
-    setAnimation('sitVariant');
+    setAnimation('idleAlt');
     setTimeout(() => {
       if (state.behavior === 'idle') {
         setAnimation('idle');
@@ -267,7 +263,8 @@ function updateSprite() {
   const anim = ANIMATIONS[state.currentAnimation];
   if (anim && anim.frames.length > 0) {
     const frame = anim.frames[state.currentFrame];
-    cat.src = `cat/${frame}`;
+    const folder = anim.folder;
+    cat.src = `sprites/${folder}/${frame}`;
     
     // Handle facing direction
     if (state.facingRight) {
@@ -394,46 +391,36 @@ function startBehaviorAI() {
     if (rand < 0.4) {
       // Follow cursor
       startWalking();
-    } else if (rand < 0.5) {
-      // Start grooming
-      state.behavior = 'grooming';
-      const groomAnim = Math.random() < 0.5 ? 'groom' : 'groomAlt';
-      setAnimation(groomAnim);
+    } else if (rand < 0.55) {
+      // Lick paw (grooming)
+      state.behavior = 'licking';
+      const lickAnim = Math.random() < 0.5 ? 'lickPaw' : 'lickPawAlt';
+      setAnimation(lickAnim);
       
-      // Stop grooming after random time
+      // Stop licking after random time
       setTimeout(() => {
-        if (state.behavior === 'grooming') {
+        if (state.behavior === 'licking') {
           state.behavior = 'idle';
           setAnimation('idle');
         }
       }, 3000 + Math.random() * 4000);
-    } else if (rand < 0.55) {
-      // Fall asleep (less frequent)
-      goToSleep();
     } else if (rand < 0.65) {
-      // Scratch
-      state.behavior = 'scratching';
-      setAnimation('scratch');
+      // Fall asleep
+      goToSleep();
+    } else if (rand < 0.75) {
+      // Throw up hairball (rare funny animation)
+      state.behavior = 'throwingUp';
+      setAnimation('throwUp');
       
       setTimeout(() => {
-        if (state.behavior === 'scratching') {
+        if (state.behavior === 'throwingUp') {
           state.behavior = 'idle';
           setAnimation('idle');
         }
       }, 2000 + Math.random() * 3000);
-    } else if (rand < 0.75) {
-      // Look around (alert)
-      setAnimation('alert');
-      setTimeout(() => {
-        if (state.behavior === 'idle') {
-          setAnimation('idle');
-        }
-      }, 2000);
     } else if (rand < 0.85) {
-      // Sit variation
-      const sitAnims = ['sit', 'sitVariant', 'idleAlt'];
-      setAnimation(sitAnims[Math.floor(Math.random() * sitAnims.length)]);
-      
+      // Idle variation
+      setAnimation('idleAlt');
       setTimeout(() => {
         if (state.behavior === 'idle') {
           setAnimation('idle');
@@ -513,8 +500,8 @@ function wakeUp() {
     state.zzzElement = null;
   }
   
-  // Stretch animation (use alert or sitVariant)
-  setAnimation('alert');
+  // Stretch animation
+  setAnimation('idleAlt');
   setTimeout(() => {
     setAnimation('idle');
   }, 1500);

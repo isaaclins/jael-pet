@@ -70,7 +70,7 @@ function createWindow() {
 
 function createTray() {
   // Create a simple tray icon
-  const iconPath = path.join(__dirname, 'cat', 'tile000.png');
+  const iconPath = path.join(__dirname, 'sprites', '01_idle', 'tile000.png');
   const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(icon.resize({ width: 16, height: 16 }));
 

@@ -2,7 +2,7 @@
 
 A cute pixel art desktop cat that lives on your screen! Watch it walk around, groom itself, take naps, and react to your interactions.
 
-![Cat Preview](cat/tile000.png)
+![Cat Preview](sprites/01_idle/tile000.png)
 
 ## Features
 
@@ -81,7 +81,7 @@ npm run dev
 
 ```
 jael-pet/
-├── cat/              # Sprite images (tile000.png - tile079.png)
+├── sprites/          # Organized sprite animations
 ├── main.js           # Electron main process
 ├── renderer.js       # Animation & behavior logic
 ├── index.html        # Pet window UI
