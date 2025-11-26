@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jael Pet</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      -webkit-app-region: no-drag;
+    }
+
+    #cat-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      -webkit-app-region: drag;
+    }
+
+    #cat-container:active {
+      cursor: grabbing;
+    }
+
+    #cat {
+      width: 192px;
+      height: 192px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      -webkit-app-region: drag;
+      transition: transform 0.1s ease;
+    }
+
+    #cat.flipped {
+      transform: scaleX(-1);
+    }
+
+    /* Bounce animation when landing */
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    #cat.bounce {
+      animation: bounce 0.3s ease;
+    }
+
+    /* Pet reaction */
+    @keyframes pet-react {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    #cat.petted {
+      animation: pet-react 0.2s ease;
+    }
+
+    /* Hearts container */
+    #hearts {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .heart {
+      position: absolute;
+      font-size: 16px;
+      animation: float-up 1s ease-out forwards;
+      opacity: 0;
+    }
+
+    @keyframes float-up {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(0.5);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-40px) scale(1);
+      }
+    }
+
+    /* Z particle for sleeping */
+    .zzz {
+      position: absolute;
+      font-size: 12px;
+      color: #666;
+      animation: zzz-float 2s ease-out infinite;
+    }
+
+    @keyframes zzz-float {
+      0% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0.5);
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(20px, -30px) scale(1);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="cat-container">
+    <img id="cat" src="cat/tile000.png" alt="Cat" draggable="false">
+    <div id="hearts"></div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
+

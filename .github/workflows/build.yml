@@ -1,0 +1,129 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            artifact: "*.dmg"
+          - os: windows-latest
+            platform: win
+            artifact: "*.exe"
+          - os: ubuntu-latest
+            platform: linux
+            artifact: "*.AppImage"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Linux needs additional dependencies for electron-builder
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools
+
+      # Create the 512x512 icon for the build
+      - name: Create icon (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p build
+          sips -z 512 512 cat/tile000.png --out build/icon.png
+
+      - name: Create icon (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p build
+          sudo apt-get install -y imagemagick
+          convert cat/tile000.png -filter point -resize 512x512 build/icon.png
+
+      - name: Create icon (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir -p build
+          npm install -g sharp-cli
+          npx sharp -i cat/tile000.png -o build/icon.png resize 512 512
+        shell: bash
+
+      - name: Build for ${{ matrix.platform }}
+        run: npm run build:${{ matrix.platform }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS artifacts
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jael-pet-macos
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: error
+
+      - name: Upload Windows artifacts
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jael-pet-windows
+          path: |
+            dist/*.exe
+          if-no-files-found: error
+
+      - name: Upload Linux artifacts
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jael-pet-linux
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: error
+
+  # Optional: Create a release when pushing a tag
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/jael-pet-macos/*
+            artifacts/jael-pet-windows/*
+            artifacts/jael-pet-linux/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
